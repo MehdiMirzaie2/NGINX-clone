@@ -1,10 +1,24 @@
 #	o-----------------o
+#	|    COLOURS      |
+#	o-----------------o
+
+RESET			:= 	\033[0m
+GREEN 			:= 	\033[38;5;46m
+WHITE 			:= 	\033[38;5;15m
+GREY 			:= 	\033[38;5;8m
+ORANGE 			:= 	\033[38;5;202m
+RED 			:= 	\033[38;5;160m
+
+#	o-----------------o
 #	|    VARIABLES    |
 #	o-----------------o
 
 NAME = webserv
 CC = c++
-CFLAGS = -Wall -Wextra -Werror -g -std=c++98 #-fsanitize=address -g
+CFLAGS = -Wall -Wextra -Werror -std=c++98 -fsanitize=address -g #-D _PRINT_
+LDFLAGS = -fsanitize=address 
+
+#CFLAGS = -Wall -Wextra -Werror -g -std=c++98 #-D _PRINT_
 
 #	o-----------------o
 #	|    INCLUDES     |
@@ -17,12 +31,20 @@ INC = inc
 #	o-----------------o
 
 SRC_FILES = \
-	HTTPResponse.cpp \
-	HTTPRequest.cpp \
 	ServerManager.cpp \
 	Server.cpp \
 	Connection.cpp \
+	Client.cpp \
 	Cout.cpp \
+	Message.cpp \
+	HTTPRequest.cpp \
+	HTTPResponse.cpp \
+	cgi.cpp \
+	ConfigParser.cpp \
+	Cout.cpp \
+	Location.cpp \
+	Utils.cpp \
+	MIME.cpp \
 	main.cpp
 
 SRC_DIR = src
@@ -42,21 +64,28 @@ OBJS = $(addprefix $(OBJ_DIR)/, $(OBJ_RAW))
 all: $(OBJ_DIR) $(NAME)
 
 $(NAME): $(OBJS)
-	$(CC) $(OBJS) -o $@
+	@echo "$(GREY)Compiling...				$<"
+	$(CC) $(LDFLAGS) $(OBJS) -o $@
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
-	@echo "Making $<"
+	@echo "$(GREEN)----------------------------------------------------"
 	$(CC) $(CFLAGS) -I $(INC) -c $< -o $@
+	@echo "Executable				./$(NAME) $(RESET)"
+# @echo "Making $<"
 
 $(OBJ_DIR):
 	mkdir -p $@
 
 clean:
+	@echo "$(RED)----------------------------------------------------"
 	rm -f $(OBJS)
-	rm -df $(OBJ_DIR)
+	rm -rf $(OBJ_DIR)
+	@echo "$(GRAY)REMOVED O-FILES $(RESET)"
 
 fclean: clean
+	@echo "$(RED)----------------------------------------------------"
 	rm -f $(NAME)
+	@echo "$(GRAY)REMOVED EXECUTABLE FILE $(RESET)"
 
 re: fclean all
 
