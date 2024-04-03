@@ -1,6 +1,6 @@
 #include "Message.hpp"
 
-Message::Message() : message(""), bufferSent(0) {}
+Message::Message(): message(""), bufferSent(0) {}
 
 Message::Message(const std::string &_message) : message(_message), bufferSent(0) {}
 
@@ -67,7 +67,9 @@ void Message::serialize(const HTTPResponse &_resp)
     // Add a blank line to indicate end of headers
     if (_resp.getCgiStatus() == false)
         this->message += "\r\n";
-
+    else
+        this->message += "\r";
+    
     // Serialize body
     this->message += _resp.getBody();
 }

@@ -12,13 +12,12 @@
 # include <vector>
 # include <map>
 
-# include "Connection.hpp"
 # include "Definitions.hpp"
 # include "Location.hpp"
+# include "log.hpp"
 
-class Connection;
+//class Connection;
 
-# define MAX_CONTENT_LENGTH 30000000
 
 /*
 In the configuration file, you should be able to:
@@ -67,27 +66,44 @@ class Server {
     Server& operator=(const Server& other);
     ~Server();
 
-    // init_servers()
-    int getSockFd();
+    //int  getSockFd();
     void startServer();
     void acceptNewLocation(Location newLocation);
     void initialiseErrorPages();
-    //void addLocation(Location & src);
-    //setter for multiple attributes prior to server start.
     void addDirective(const std::string& name, const std::string& value);
     void printState(void);
 
+    //Method Permissions:
+    void setMethodPermissions(std::map<enum e_HRM, bool> newPermissions);
+    void printMethodPermissions() const;
+    void initMethodPermissions();
+
+    //Booleans:
+    bool hasLocation(const std::string &reqPath);
+    bool getMethodPermission(enum e_HRM method) const;
+
     //Getters:
-    std::string getListen(void) const;
-    std::string getHost(void) const;
-    std::string getIndex(void) const;
-    int getSockFd(void) const;
+    std::string           getListen(void) const;
+    std::string           getHost(void) const;
+    std::string           getIndex(void) const;
+    std::string           getRoot(void) const;
+    int                   getSockFd(void) const;
+    std::string           getErrorPage(const int errorCode) const;
+    Location&             getLocationByPath(const std::string& reqPath);
+    std::map<enum e_HRM, bool> getMethodPermissions(void) const;
+
+    std::string           getReturnPath(const std::string &reqPath) const;
+    size_t                getMaxBodySize() const;
+    bool                  isAutoIndex() const;
 
     //Setters:
     void setListen(std::string listen);
     void setHost(std::string host);
     void setIndex(std::string index);
     void setSockFd(int sockfd);
+    void setErrorPage(const std::string& value);
+    void setMethodPermission(enum e_HRM test, bool permissionState);
+    void setAllowedMethods(const std::string& methods);
 
   private:
     size_t                      _id;
@@ -100,7 +116,8 @@ class Server {
     size_t                      _client_max_body_size;
     bool                        _autoindex;
     std::map<int, std::string>  _err_pages;
-    std::vector<Location> 		_locations;
+    std::vector<Location> 		  _locations;
+    std::map<enum e_HRM, bool>  _defaultPermissions;
 };
 
 #endif

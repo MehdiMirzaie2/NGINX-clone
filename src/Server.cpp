@@ -29,83 +29,80 @@
  * Do they need to be?
 */
 Server::Server() {
+  DEBUG("\t\tDefault constructor called.");
   _listen = ""; // Port
   _host = ""; // IP.
   _server_name = "";  //default localhost on most systems.
-  _root = "";  //root directory of server.
-  _index = "";  
+  _root = "application";  //root directory of server.
+  _index = "";
   _sockfd = -1; //server FD.
   _client_max_body_size = MAX_CONTENT_LENGTH;
   _autoindex = false;
   this->initialiseErrorPages();
-  std::cout << YELLOW << "Server\t: " << RESET << "default constructor called. " << std::endl;
+  this->initMethodPermissions();
 }
 
 Server::Server(size_t serverId) {
+  DEBUG("\t\tID Param constructor called.");
   _listen = ""; // Port
   _host = ""; // IP.
   _server_name = "";  //default localhost on most systems.
-  _root = "";  //root directory of server.
-  _index = "";  
+  _root = "application";  //root directory of server.
+  _index = "";
   _sockfd = -1; //server FD.
   _client_max_body_size = MAX_CONTENT_LENGTH;
   _autoindex = false;
   this->initialiseErrorPages();
+  this->initMethodPermissions();
   _id = serverId;
-  std::cout << YELLOW << "Server\t: " << RESET 
-  << "id constructor called, id: " << _id << std::endl;
 }
 
-// Server::Server(const Server& other) {
-//   _sockfd = safe_dup(other._sockfd);
-//   _host = other._host;
-//   _listen = other._listen;
-//   std::cout << YELLOW << "Server\t: " << RESET 
-//   <<"Copy constructor called. " << _host << ":" << _listen << " fd: " << _sockfd << std::endl;
-// }
 
-Server::Server(const Server& other) : 
-    _listen(other._listen), 
-    _host(other._host), 
-    _server_name(other._server_name), 
-    _root(other._root), 
-    _index(other._index), 
-    _sockfd(other._sockfd), 
-    _client_max_body_size(other._client_max_body_size), 
-    _autoindex(other._autoindex) {
-    // Assume _locations is a std::vector<std::string>
+Server::Server(const Server& other) :
+    _listen(other._listen),
+    _host(other._host),
+    _server_name(other._server_name),
+    _root(other._root),
+    _index(other._index),
+    _sockfd(other._sockfd),
+    _client_max_body_size(other._client_max_body_size),
+    _autoindex(other._autoindex),
+    _err_pages(other._err_pages)
+{
+    DEBUG("\t\tCopy constructor called.");
     _locations = other._locations;
-    
-      std::cout << YELLOW << "Server\t: " << RESET 
-  <<"Copy constructor called. " << _host << ":" << _listen << " fd: " << _sockfd << std::endl;
-    // If there were pointers or complex types requiring deep copies, you'd handle them here, like so:
-    // _complexType = new ComplexType(*other._complexType);
+    _defaultPermissions = other._defaultPermissions;
 }
 
 
 Server& Server::operator=(const Server& other) {
+  DEBUG("\t\tCopy equals override constructor called.");
     _listen = other._listen;
     _host = other._host;
     _server_name = other._server_name;
     _root = other._root;
     _index = other._index;
-    _sockfd = other._sockfd; 
+    _sockfd = other._sockfd;
     _client_max_body_size = other._client_max_body_size;
     _autoindex = other._autoindex;
+    _err_pages = other._err_pages;
     _locations = other._locations;
-
-  std::cout << YELLOW << "Server\t: " << RESET 
-  <<"equals override constructor called. " << _host << ":" << _listen<< " fd: " << _sockfd << std::endl;
+    _defaultPermissions = other._defaultPermissions;
   return *this;
 }
 
 Server::~Server() {
-  // TODO. Do teardown stuff
-  std::cout << YELLOW << "Server\t: " << RESET
-  <<"destructor called. " << _host << ":" << _listen << " fd: " << _sockfd << std::endl;
+  DEBUG("\t\tDestructor called.");
   if (_sockfd != -1) {
-    shutdown(_sockfd, 2); 
+    shutdown(_sockfd, 2);
   }
+}
+
+void Server::initMethodPermissions()
+{
+    _defaultPermissions[r_GET] = false;
+    _defaultPermissions[r_POST] = false;
+    _defaultPermissions[r_DELETE] = false;
 }
 
 /*------------------------------------------*\
@@ -117,7 +114,6 @@ Server::~Server() {
     // std::string getHost(void) const;
     // std::string getIndex(void) const;
     // std::string getSockFd(void) const;
-
 
   std::string Server::getListen(void) const
   {
@@ -134,10 +130,54 @@ Server::~Server() {
     return _index;
   }
 
+  std::string Server::getRoot(void) const
+  {
+    return _root;
+  }
+
   int Server::getSockFd(void) const
   {
     return _sockfd;
   }
+
+  std::string Server::getErrorPage(const int errorCode) const {
+    std::map<int, std::string>::const_iterator it = _err_pages.find(errorCode);
+      if (it != _err_pages.end() && it->second != "") {
+        return it->second; // Return the associated error message page path.
+      } else {
+        return "E404.html";
+      }
+  }
+
+  std::string Server::getReturnPath(const std::string &reqPath) const
+  {
+    for (size_t i = 0; i < _locations.size(); ++i)
+    {
+      if (_locations[i].getPath() == reqPath)
+      {
+        return _locations[i].getReturn();
+      }
+    }
+    return std::string();
+  }
+
+bool Server::getMethodPermission(enum e_HRM method) const {
+    std::map<enum e_HRM, bool>::const_iterator it = _defaultPermissions.find(method);
+    if (it != _defaultPermissions.end()) {
+        return it->second;
+    }
+    return false; // Default if not set
+}
+
+std::map<enum e_HRM, bool> Server::getMethodPermissions(void) const
+{
+  return _defaultPermissions;
+}
+
+size_t Server::getMaxBodySize() const
+{
+  return this->_client_max_body_size;
+}
 
 /*------------------------------------------*\
 |                 SETTERS                    |
@@ -165,22 +205,48 @@ Server::~Server() {
 
 void Server::initialiseErrorPages(void)
 {
-	_err_pages[301] = "";
-	_err_pages[302] = "";
-	_err_pages[400] = "";
-	_err_pages[401] = "";
-	_err_pages[402] = "";
-	_err_pages[403] = "";
-	_err_pages[404] = "";
-	_err_pages[405] = "";
-	_err_pages[406] = "";
-	_err_pages[500] = "";
-	_err_pages[501] = "";
-	_err_pages[502] = "";
-	_err_pages[503] = "";
-	_err_pages[505] = "";
-	_err_pages[505] = "";
+  _err_pages[204] = "E204.html";
+	_err_pages[301] = "E301.html";
+	_err_pages[302] = "E302.html";
+	_err_pages[400] = "E400.html";
+	_err_pages[401] = "E401.html";
+	_err_pages[402] = "E402.html";
+	_err_pages[403] = "E403.html";
+	_err_pages[404] = "E404.html";
+	_err_pages[405] = "E405.html";
+	_err_pages[406] = "E406.html";
+  _err_pages[413] = "E413.html";
+	_err_pages[500] = "E500.html";
+	_err_pages[501] = "E501.html";
+	_err_pages[502] = "E502.html";
+	_err_pages[503] = "E503.html";
+	_err_pages[505] = "E505.html";
 }
+
+void Server::setMethodPermission(enum e_HRM test, bool permissionState)
+{
+    _defaultPermissions[test] = permissionState;
+}
+
+void Server::setAllowedMethods(const std::string& methods) {
+    std::istringstream methodStream(methods);
+    std::string method;
+
+    //each usage of methodStream >> method reads the next word
+    while(methodStream >> method) {
+        if(method == "GET") {
+          DEBUG("\t\tSetting server default permission [GET] to true.");
+          setMethodPermission(r_GET, true);
+        } else if(method == "POST") {
+          DEBUG("\t\tSetting server default permission [POST] to true.");
+          setMethodPermission(r_POST, true);
+        } else if(method == "DELETE") {
+          DEBUG("\t\tSetting server default permission [DELETE] to true.");
+          setMethodPermission(r_DELETE, true);
+        }
+    }
+}
+
 
 /*------------------------------------------*\
 |             OTHER METHODS                  |
@@ -210,6 +276,8 @@ void Server::printState(void)
   for (std::vector<Location>::iterator it = _locations.begin(); it != _locations.end(); ++it)
   {
     std::cout << it->getPath() << std::endl;
+    it->printState();
+
   }
   std::cout << RESET;
 }
@@ -250,7 +318,7 @@ void Server::startServer(void) {
   if (sockfd < 0)
   {
     perror("Server: socket");
-    throw std::runtime_error("Server\t: socket: failed");
+    throw std::runtime_error("Server\t\t: socket: failed");
   }
 
   // set to allow port reuse? or something
@@ -266,9 +334,9 @@ void Server::startServer(void) {
   if (fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1)
     perror("fcntl F_SETFL O_NONBLOCK");
 
-  std::cout << "DBG: sockfd: " << sockfd << std::endl;
-  std::cout << "servinfo aiaddr: " << servinfo->ai_addr << std::endl;
-  std::cout << "servinfo ai_addrlen: " << servinfo->ai_addrlen << std::endl;
+  //std::cout << "DBG: sockfd: " << sockfd << std::endl;
+  //std::cout << "servinfo aiaddr: " << servinfo->ai_addr << std::endl;
+  //std::cout << "servinfo ai_addrlen: " << servinfo->ai_addrlen << std::endl;
   error_return = bind(sockfd, servinfo->ai_addr, servinfo->ai_addrlen);
   if (error_return != 0)
   {
@@ -285,33 +353,48 @@ void Server::startServer(void) {
   _sockfd = sockfd;
   _host = ipstr;
 
-  std::cout << YELLOW << "Server\t: " << RESET
-  <<"starting on " << _host << ":" << _listen << " fd: " << _sockfd << std::endl;
+  DEBUG("Starting Server on %s:%s, fd: %d", _host.c_str(), _listen.c_str(), _sockfd);
+  //std::cout << YELLOW << "Server\t\t: " << RESET
+  //<<"starting on " << _host << ":" << _listen << " fd: " << _sockfd << std::endl;
   freeaddrinfo(servinfo);
-}
-
-int Server::getSockFd()
-{
-  return _sockfd;
 }
 
 void Server::acceptNewLocation(Location newLocation) {
   _locations.push_back(newLocation);
 }
 
+void Server::setErrorPage(const std::string& value) {
+    std::istringstream iss(value);
+    int errorCode;
+    std::string errorPage;
+
+    iss >> errorCode; // Extract the error code as an integer
+    iss >> errorPage; // Extract the error page path
+
+    DEBUG("\t\tSetting error page %d to: %s", errorCode, errorPage.c_str());
+    //std::cout << YELLOW << "Server: setting error page " << errorCode << " to: "<< errorPage << std::endl;
+    // Ensure that the error page path does not have a trailing semicolon
+    if (!errorPage.empty() && errorPage[errorPage.length() - 1] == ';') {
+        errorPage.erase(errorPage.length() - 1);
+    }
+
+    // Store the extracted values into the map
+    _err_pages[errorCode] = errorPage;
+}
+
 void Server::addDirective(const std::string& name, const std::string& value) {
-  if (name == "listen") 
+  if (name == "listen")
   {
     _listen = value;
-  } 
+  }
   else if (name == "server_name")
   {
     _server_name = value;
-  } 
+  }
   else if (name == "host")
   {
     _host = value;
-  } 
+  }
   else if (name == "root")
   {
     _root = value;
@@ -320,11 +403,65 @@ void Server::addDirective(const std::string& name, const std::string& value) {
   {
     _index = value;
   }
+  else if (name == "error_page")
+  {
+    setErrorPage(value);
+  }
+  else if (name == "allow_methods")
+  {
+    //DEBUG("\t\tServer default method set: %s", value.c_str());
+    setAllowedMethods(value);
+  }
+  else if (name == "body_size")
+  {
+    _client_max_body_size = std::stoi(value);
+  }
+  else if (name == "autoindex")
+  {
+    if (value == "true")
+    {
+      _autoindex = true;
+    }
+    else
+    {
+      _autoindex = false;
+    }
+  }
 }
 
-/*
-HTTPResponse & Server::makeResponse(HTTPRequest &request)
-{
-std::cout << "[]"
+bool Server::hasLocation(const std::string &reqPath) {
+  std::cout << GREEN;
+  DEBUG("Comparing: %s with", reqPath.c_str());
+  for (size_t i = 0; i < _locations.size(); ++i) {
+    DEBUG(": %s, ", _locations[i].getPath().c_str());
+    if (_locations[i].getPath() == reqPath) {
+      std::cout << RESET;
+      return true; // Found a matching path, so return true.
+    }
+  }
+  std::cout << RESET;
+  return false; // No match found after checking all locations.
+}
 
-}*/
+// Location* Server::getLocationByPath(const std::string& reqPath) {
+//     for (size_t i = 0; i < _locations.size(); ++i) {
+//         if (_locations[i].getPath() == reqPath) {
+//             return &_locations[i]; // Return a pointer to the matching Location instance.
+//         }
+//     }
+//     return NULL; // Return NULL if no match is found.
+// }
+
+Location& Server::getLocationByPath(const std::string& reqPath) {
+    for (size_t i = 0; i < _locations.size(); ++i) {
+        if (_locations[i].getPath() == reqPath) {
+            return _locations[i]; // Return a reference to the matching Location instance.
+        }
+    }
+    DEBUG("\t\tCould not find reqPath: %s in our Servers Vector of Locations..", reqPath.c_str());
+    return Location::NullLocation;
+}
+
+bool Server::isAutoIndex() const {
+  return _autoindex;
+}
