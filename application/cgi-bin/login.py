@@ -3,6 +3,7 @@ import user
 import os
 import sys
 import cookie
+import bcrypt
 # import cgitb
 # cgitb.enable()
 # string = ""
@@ -22,18 +23,33 @@ def verifyLogin(username: str, password: str) -> str:
 	logger = user.User("", username, password, "")
 	string: str = ""
 
-	if logger.getUser(username, password):
-		envcookie = os.getenv("cookie")
-		if not envcookie:
-			SessionId = cookie.generateSessionId()
-			newCookie = cookie.generateCookie(SessionId)
-			headers.append(newCookie)
-			logger.updateSessionId(SessionId)
-		string += "<h1> Welcome " + username + " and your new session-id is " + logger.sessionID + "</h1>"
-		string += "<p><a href='/'>Go back</a></p>"
 
-	elif logger.getUserByUsername(username):
-		string += "<h1>Incorrect password</h1>"
+	if logger.getUserByUsername(username):
+		if bcrypt.checkpw(password.encode("utf-8"), logger.password.encode("utf-8")):
+			envcookie = os.getenv("cookie")
+			if not envcookie:
+				SessionId = cookie.generateSessionId()
+				newCookie = cookie.generateCookie(SessionId)
+				headers.append(newCookie)
+				logger.updateSessionId(SessionId)
+			string += "<h1> Welcome " + username + " and your new session-id is " + logger.sessionID + "</h1>"
+			string += "<p><a href='/'>Go back</a></p>"
+		else:
+			string += "<h1>Incorrect password</h1>"	
+
+	# if logger.getUser(username, password):
+	# 	envcookie = os.getenv("cookie")
+	# 	if not envcookie:
+	# 		SessionId = cookie.generateSessionId()
+	# 		newCookie = cookie.generateCookie(SessionId)
+	# 		headers.append(newCookie)
+	# 		logger.updateSessionId(SessionId)
+		
+	# 	string += "<h1> Welcome " + username + " and your new session-id is " + logger.sessionID + "</h1>"
+	# 	string += "<p><a href='/'>Go back</a></p>"
+
+	# elif logger.getUserByUsername(username):
+	# 	string += "<h1>Incorrect password</h1>"
 
 	else:
 		string += "<h1> User not found! </h1>\n"
@@ -101,7 +117,8 @@ def handle_post() -> str:
 		_, username = username.split("=")
 		_, password = password.split("=")
 		string = verifyLogin(username, password)
-	except:
+	except Exception as e:
+		print("something bad happened", e)
 		string = "<h1>invalid string</h1>"
 	print_headers(headers)
 	return string
@@ -115,7 +132,9 @@ if __name__ == '__main__':
 	elif os.getenv("Method") == "POST":
 		string = handle_post()
 	else:
-		string = "METHOD NOT ALLOWED"
+		string = handle_post()
+		# string = "METHOD NOT ALLOWED" + os.getenv("Method")
+	# 	string = handle_post()
 	print("<html><body>")
 	print("<h1> Login Program </h1>")
 	if string == "":

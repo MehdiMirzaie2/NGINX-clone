@@ -1,5 +1,6 @@
 import sqlite3
 import sys
+import bcrypt
 
 class User:
 	def __init__(self, sessionID: str, userName: str, password: str, firstName: str):
@@ -15,7 +16,7 @@ class User:
 		CREATE TABLE IF NOT EXISTS users (
 					sessionID TEXT,
 					userName TEXT,
-					password TEXT,
+					password  TEXT,
 					firstName TEXT
 		)
 		""")
