@@ -1,4 +1,4 @@
-<h1 align="center">42-webserv🌐</h1>
+<h1 align="center">Clone of NGINX writen in C++🌐</h1>
 
 # :pushpin: Index
 
